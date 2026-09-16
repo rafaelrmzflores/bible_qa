@@ -1,34 +1,81 @@
 .bqa-search-wrap {
-    max-width: 700px;
-    margin: 1.5rem auto;
-    font-family: inherit;
+  max-width: 700px;
+  margin: 1.5rem auto;
+  font-family: inherit;
 }
 .bqa-input {
-    width: 100%;
-    padding: 12px 16px;
-    font-size: 1rem;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    outline: none;
-    transition: border-color .2s;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s;
 }
-.bqa-input:focus { border-color: #4a7c59; }
+.bqa-input:focus {
+  border-color: #4a7c59;
+}
 
-.bqa-results { margin-top: .75rem; }
+.bqa-results {
+  margin-top: 0.75rem;
+}
 
 .bqa-result {
-    display: block;
-    padding: 12px 16px;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    text-decoration: none;
-    color: inherit;
-    transition: background .15s;
+  display: block;
+  padding: 12px 16px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s;
 }
-.bqa-result:hover { background: #f7faf8; }
-.bqa-result h4 { margin: 0 0 4px; font-size: 1rem; color: #2c5f3f; }
-.bqa-result p  { margin: 0; font-size: .9rem; color: #555; }
+.bqa-result:hover {
+  background: #f7faf8;
+}
+.bqa-result h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: #2c5f3f;
+}
+.bqa-result p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+}
 
-.bqa-loading, .bqa-empty { color: #888; font-style: italic; padding: .5rem 0; }
-.bqa-error { color: #b32d2e; }
+.bqa-loading,
+.bqa-empty {
+  color: #888;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+.bqa-error {
+  color: #b32d2e;
+}
+
+.bqa-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1em 0 1.5em;
+  padding: 12px;
+  background: #f7faf8;
+  border-radius: 8px;
+}
+.bqa-author-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.bqa-author-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+.bqa-author-name {
+  color: #333;
+}
+.bqa-author-bio {
+  color: #666;
+  font-size: 0.9em;
+}

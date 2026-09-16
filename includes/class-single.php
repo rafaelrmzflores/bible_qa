@@ -88,6 +88,8 @@ class BQA_Single {
         // Load related (same terms, excluding self)
         $qa->related = self::get_related( $qa->id, wp_list_pluck( $qa->terms, 'term_id' ) );
 
+        $qa->author = self::get_author( $qa->author_id );
+
         // Bump the view counter (once per visitor per question)
         self::maybe_increment_views( $qa->id );
 
@@ -231,5 +233,50 @@ class BQA_Single {
         if ( $page ) {
             update_option( 'bqa_search_page_id', (int) $page );
         }
+    }
+
+    /**
+     * Fetch an author row by ID.
+     */
+    public static function get_author( $author_id ) {
+        $author_id = (int) $author_id;
+        if ( ! $author_id ) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'bible_qa_authors';
+
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE author_id = %d LIMIT 1",
+            $author_id
+        ) );
+    }
+
+    /**
+     * Return the author's avatar URL, falling back to a Gravatar from email,
+     * then to a data URI placeholder.
+     */
+    public static function get_author_avatar( $author, $size = 64 ) {
+        if ( ! $author ) {
+            return '';
+        }
+
+        if ( ! empty( $author->avatar_url ) ) {
+            return $author->avatar_url;
+        }
+
+        if ( ! empty( $author->email ) ) {
+            return get_avatar_url( $author->email, [ 'size' => $size ] );
+        }
+
+        return '';
+    }
+
+    /**
+     * Permalink for an author archive page (we'll wire this up later).
+     */
+    public static function author_permalink( $slug ) {
+        return home_url( user_trailingslashit( 'qa-author/' . $slug ) );
     }
 }

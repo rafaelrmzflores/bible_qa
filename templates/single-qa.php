@@ -15,6 +15,35 @@ get_header();
         <header class="bqa-single-header">
             <h1 class="bqa-question"><?php echo esc_html( $qa->question ); ?></h1>
 
+            <?php if ( ! empty( $qa->author ) ) : ?>
+                <div class="bqa-author">
+                    <?php $avatar = BQA_Single::get_author_avatar( $qa->author, 48 ); ?>
+                    <?php if ( $avatar ) : ?>
+                        <img class="bqa-author-avatar"
+                            src="<?php echo esc_url( $avatar ); ?>"
+                            alt="<?php echo esc_attr( $qa->author->name ); ?>"
+                            width="48" height="48" loading="lazy">
+                    <?php endif; ?>
+                    <div class="bqa-author-info">
+                        <span class="bqa-author-name">
+                            Answered by <strong><?php echo esc_html( $qa->author->name ); ?></strong>
+                        </span>
+                        <?php if ( ! empty( $qa->author->bio ) ) : ?>
+                            <span class="bqa-author-bio"><?php echo esc_html( wp_trim_words( $qa->author->bio, 20 ) ); ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php
+                $refs = BQA_Admin::get_meta( $qa->id, 'scripture_refs' );
+                if ( $refs ) :
+                ?>
+                    <p class="bqa-scripture-refs">
+                        <strong>Scripture:</strong> <?php echo esc_html( $refs ); ?>
+                    </p>
+                <?php endif; ?>
+
             <?php if ( ! empty( $qa->terms ) ) : ?>
                 <ul class="bqa-terms">
                     <?php foreach ( $qa->terms as $term ) : ?>
