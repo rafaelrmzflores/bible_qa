@@ -24,15 +24,18 @@ get_header();
                             alt="<?php echo esc_attr( $qa->author->name ); ?>"
                             width="48" height="48" loading="lazy">
                     <?php endif; ?>
-                    <div class="bqa-author-info">
+                   
+                    <!-- <div class="bqa-author-info">
                         <span class="bqa-author-name">
                             Answered by <strong><?php echo esc_html( $qa->author->name ); ?></strong>
                         </span>
                         <?php if ( ! empty( $qa->author->bio ) ) : ?>
                             <span class="bqa-author-bio"><?php echo esc_html( wp_trim_words( $qa->author->bio, 20 ) ); ?></span>
                         <?php endif; ?>
-                    </div>
+                    </div> -->
+
                 </div>
+
             <?php endif; ?>
 
             <?php
@@ -44,7 +47,7 @@ get_header();
                     </p>
                 <?php endif; ?>
 
-            <?php if ( ! empty( $qa->terms ) ) : ?>
+            <!-- <?php if ( ! empty( $qa->terms ) ) : ?>
                 <ul class="bqa-terms">
                     <?php foreach ( $qa->terms as $term ) : ?>
                         <li>
@@ -54,7 +57,8 @@ get_header();
                         </li>
                     <?php endforeach; ?>
                 </ul>
-            <?php endif; ?>
+            <?php endif; ?> -->
+
         </header>
 
         <div class="bqa-answer">
@@ -64,6 +68,54 @@ get_header();
             echo wpautop( wp_kses_post( $qa->answer ) );
             ?>
         </div>
+
+     <?php if ( ! empty( $qa->author ) ) : ?>
+        <div class="bqa-author-info">
+            <span class="bqa-author-name">
+                Answered by <strong><?php echo esc_html( $qa->author->name ); ?></strong>
+            </span>
+            <?php if ( ! empty( $qa->source ) ) : ?>
+                <span class="bqa-source-line">
+                    in
+                    <?php
+                    $source  = $qa->source;
+                    $locator = $qa->source_locator;
+
+                    // If the source's author matches the answer's author, don't repeat the name
+                    $same_author = $source
+                        && ! empty( $source->author )
+                        && strcasecmp( trim( $source->author ), trim( $qa->author->name ) ) === 0;
+
+                    if ( $same_author ) {
+                        // Format just title + publisher + year + locator
+                        $bits = [];
+                        if ( $source->publisher ) $bits[] = $source->publisher;
+                        if ( $source->year )      $bits[] = $source->year;
+                        $meta     = $bits ? ' (' . implode( ', ', $bits ) . ')' : '';
+                        $citation = '<em>' . esc_html( $source->title ) . '</em>' . $meta;
+                        if ( $locator ) $citation .= ', ' . esc_html( $locator );
+                        echo $citation;
+                    } else {
+                        echo BQA_Single::format_citation( $source, $locator );
+                    }
+                    ?>
+                    <?php if ( ! empty( $source->url ) ) : ?>
+                        — <a href="<?php echo esc_url( $source->url ); ?>" target="_blank" rel="noopener">View source</a>
+                    <?php endif; ?>
+                </span>
+            <?php endif; ?>
+        </div>
+    <?php elseif ( ! empty( $qa->source ) ) : ?>
+        <div class="bqa-author-info bqa-author-info--source-only">
+            <span class="bqa-source-line">
+                Source:
+                <?php echo BQA_Single::format_citation( $qa->source, $qa->source_locator ); ?>
+                <?php if ( ! empty( $qa->source->url ) ) : ?>
+                    — <a href="<?php echo esc_url( $qa->source->url ); ?>" target="_blank" rel="noopener">View source</a>
+                <?php endif; ?>
+            </span>
+        </div>
+    <?php endif; ?>
 
         <footer class="bqa-single-footer">
             <p class="bqa-meta">

@@ -90,6 +90,8 @@ class BQA_Single {
 
         $qa->author = self::get_author( $qa->author_id );
 
+        $qa->source = self::get_source( $qa->source_id );
+
         // Bump the view counter (once per visitor per question)
         self::maybe_increment_views( $qa->id );
 
@@ -278,5 +280,70 @@ class BQA_Single {
      */
     public static function author_permalink( $slug ) {
         return home_url( user_trailingslashit( 'qa-author/' . $slug ) );
+    }
+
+    /**
+     * Fetch a source row by ID.
+     */
+    public static function get_source( $source_id ) {
+        $source_id = (int) $source_id;
+        if ( ! $source_id ) {
+            return null;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'bible_qa_sources';
+
+        return $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$table} WHERE source_id = %d LIMIT 1",
+            $source_id
+        ) );
+    }
+
+    /**
+     * Build a human-readable citation string.
+     * Example: "R.C. Sproul, Essential Truths of the Christian Faith (Tyndale, 1992), p. 145"
+     */
+    public static function format_citation( $source, $locator = '' ) {
+        if ( ! $source ) {
+            return '';
+        }
+
+        $parts = [];
+
+        if ( ! empty( $source->author ) ) {
+            $parts[] = $source->author . ',';
+        }
+
+        $title = '<em>' . esc_html( $source->title ) . '</em>';
+
+        $meta_bits = [];
+        if ( ! empty( $source->publisher ) ) {
+            $meta_bits[] = $source->publisher;
+        }
+        if ( ! empty( $source->year ) ) {
+            $meta_bits[] = $source->year;
+        }
+        if ( ! empty( $source->edition ) ) {
+            $meta_bits[] = $source->edition;
+        }
+        if ( $meta_bits ) {
+            $title .= ' (' . implode( ', ', $meta_bits ) . ')';
+        }
+
+        $parts[] = $title;
+
+        if ( $locator ) {
+            $parts[] = ', ' . $locator;
+        }
+
+        return implode( ' ', $parts );
+    }
+
+    /**
+     * Permalink for a source archive page (we'll wire this up later).
+     */
+    public static function source_permalink( $slug ) {
+        return home_url( user_trailingslashit( 'qa-source/' . $slug ) );
     }
 }

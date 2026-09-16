@@ -19,7 +19,7 @@ define( 'BQA_VERSION', '1.0.0' );
 define( 'BQA_FILE', __FILE__ );
 define( 'BQA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BQA_URL',  plugin_dir_url( __FILE__ ) );
-define( 'BQA_DB_VERSION', '1.0.2' );
+define( 'BQA_DB_VERSION', '1.0.3' );
 
 /* -------------------------------------------------------------------------
  * Activation / Deactivation
@@ -63,6 +63,8 @@ function bqa_create_tables() {
         question varchar(500) NOT NULL,
         answer longtext NOT NULL,
         author_id bigint(20) unsigned NULL,
+        source_id bigint(20) unsigned NULL,
+        source_locator varchar(100) NULL,
         slug varchar(255) NOT NULL,
         status varchar(20) NOT NULL DEFAULT 'published',
         views bigint(20) unsigned NOT NULL DEFAULT 0,
@@ -71,10 +73,11 @@ function bqa_create_tables() {
         PRIMARY KEY  (id),
         UNIQUE KEY slug (slug),
         KEY status (status),
-        KEY author_id (author_id)
+        KEY author_id (author_id),
+        KEY source_id (source_id)
     ) $charset_collate;";
 
-    // --- Authors table (new) ---
+    // --- Authors ---
     $sql_authors = "CREATE TABLE {$prefix}bible_qa_authors (
         author_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         name varchar(200) NOT NULL,
@@ -91,7 +94,25 @@ function bqa_create_tables() {
         KEY wp_user_id (wp_user_id)
     ) $charset_collate;";
 
-    // --- Meta table ---
+    // --- Sources (new) ---
+    $sql_sources = "CREATE TABLE {$prefix}bible_qa_sources (
+        source_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        title varchar(500) NOT NULL,
+        author varchar(300) NULL,
+        publisher varchar(255) NULL,
+        year varchar(20) NULL,
+        edition varchar(100) NULL,
+        isbn varchar(20) NULL,
+        url varchar(500) NULL,
+        notes longtext NULL,
+        slug varchar(255) NOT NULL,
+        created_at datetime NOT NULL,
+        updated_at datetime NOT NULL,
+        PRIMARY KEY  (source_id),
+        UNIQUE KEY slug (slug)
+    ) $charset_collate;";
+
+    // --- Meta ---
     $sql_meta = "CREATE TABLE {$prefix}bible_qa_meta (
         meta_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         qa_id bigint(20) unsigned NOT NULL,
@@ -134,6 +155,7 @@ function bqa_create_tables() {
 
     dbDelta( $sql_qa );
     dbDelta( $sql_authors );
+    dbDelta( $sql_sources );
     dbDelta( $sql_meta );
     dbDelta( $sql_terms );
     dbDelta( $sql_term_rel );
@@ -141,8 +163,8 @@ function bqa_create_tables() {
 
     bqa_ensure_fulltext_index();
 
-    // Add author_id column to existing installs that predate this schema
     bqa_maybe_add_author_column();
+    bqa_maybe_add_source_columns();
 }
 
 /**
@@ -166,6 +188,36 @@ function bqa_maybe_add_author_column() {
     if ( ! $has_column ) {
         $wpdb->query( "ALTER TABLE {$table} ADD COLUMN author_id BIGINT UNSIGNED NULL AFTER answer" );
         $wpdb->query( "ALTER TABLE {$table} ADD KEY author_id (author_id)" );
+    }
+}
+
+/**
+ * Adds the source_id and source_locator columns to wp_bible_qa if missing.
+ */
+function bqa_maybe_add_source_columns() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'bible_qa';
+
+    $exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table ) );
+    if ( ! $exists ) {
+        return;
+    }
+
+    $has_source_id = $wpdb->get_var( $wpdb->prepare(
+        "SHOW COLUMNS FROM {$table} LIKE %s",
+        'source_id'
+    ) );
+    if ( ! $has_source_id ) {
+        $wpdb->query( "ALTER TABLE {$table} ADD COLUMN source_id BIGINT UNSIGNED NULL AFTER author_id" );
+        $wpdb->query( "ALTER TABLE {$table} ADD KEY source_id (source_id)" );
+    }
+
+    $has_locator = $wpdb->get_var( $wpdb->prepare(
+        "SHOW COLUMNS FROM {$table} LIKE %s",
+        'source_locator'
+    ) );
+    if ( ! $has_locator ) {
+        $wpdb->query( "ALTER TABLE {$table} ADD COLUMN source_locator VARCHAR(100) NULL AFTER source_id" );
     }
 }
 

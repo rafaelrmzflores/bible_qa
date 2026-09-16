@@ -63,6 +63,15 @@ class BQA_Admin {
             self::MENU_SLUG . '-authors',
             [ __CLASS__, 'render_authors_page' ]
         );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Sources',
+            'Sources',
+            self::CAPABILITY,
+            self::MENU_SLUG . '-sources',
+            [ __CLASS__, 'render_sources_page' ]
+        );
     }
 
     /* ---------------------------------------------------------------------
@@ -98,6 +107,8 @@ class BQA_Admin {
             case 'delete_term':     self::action_delete_term();     break;
             case 'save_author':     self::action_save_author();     break;
             case 'delete_author':   self::action_delete_author();   break;
+            case 'save_source':     self::action_save_source();     break;
+            case 'delete_source':   self::action_delete_source();   break;
         }
     }
 
@@ -136,15 +147,19 @@ class BQA_Admin {
         // Ensure slug uniqueness (append -2, -3, etc.)
         $slug = self::unique_slug( $slug, $id, $table );
 
-        $author_id = isset( $_POST['author_id'] ) ? (int) $_POST['author_id'] : 0;
+        $author_id      = isset( $_POST['author_id'] ) ? (int) $_POST['author_id'] : 0;
+        $source_id      = isset( $_POST['source_id'] ) ? (int) $_POST['source_id'] : 0;
+        $source_locator = isset( $_POST['source_locator'] ) ? sanitize_text_field( wp_unslash( $_POST['source_locator'] ) ) : '';
 
         $data = [
-            'question'   => $question,
-            'answer'     => $answer,
-            'author_id'  => $author_id ?: null,
-            'slug'       => $slug,
-            'status'     => $status,
-            'updated_at' => current_time( 'mysql' ),
+            'question'       => $question,
+            'answer'         => $answer,
+            'author_id'      => $author_id ?: null,
+            'source_id'      => $source_id ?: null,
+            'source_locator' => $source_locator ?: null,
+            'slug'           => $slug,
+            'status'         => $status,
+            'updated_at'     => current_time( 'mysql' ),
         ];
 
         if ( $id > 0 ) {
@@ -323,6 +338,81 @@ class BQA_Admin {
         );
 
         self::redirect_with_notice( 'authors', [], 'success', 'Author deleted.' );
+    }
+
+    /* ---------------------------------------------------------------------
+     * Action: save a source
+     * ------------------------------------------------------------------ */
+    private static function action_save_source() {
+        check_admin_referer( 'bqa_save_source' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'bible_qa_sources';
+
+        $source_id = isset( $_POST['source_id'] ) ? (int) $_POST['source_id'] : 0;
+        $title     = isset( $_POST['source_title'] ) ? sanitize_text_field( wp_unslash( $_POST['source_title'] ) ) : '';
+        $author    = isset( $_POST['source_author'] ) ? sanitize_text_field( wp_unslash( $_POST['source_author'] ) ) : '';
+        $publisher = isset( $_POST['source_publisher'] ) ? sanitize_text_field( wp_unslash( $_POST['source_publisher'] ) ) : '';
+        $year      = isset( $_POST['source_year'] ) ? sanitize_text_field( wp_unslash( $_POST['source_year'] ) ) : '';
+        $edition   = isset( $_POST['source_edition'] ) ? sanitize_text_field( wp_unslash( $_POST['source_edition'] ) ) : '';
+        $isbn      = isset( $_POST['source_isbn'] ) ? sanitize_text_field( wp_unslash( $_POST['source_isbn'] ) ) : '';
+        $url       = isset( $_POST['source_url'] ) ? esc_url_raw( wp_unslash( $_POST['source_url'] ) ) : '';
+        $notes     = isset( $_POST['source_notes'] ) ? wp_kses_post( wp_unslash( $_POST['source_notes'] ) ) : '';
+
+        if ( ! $title ) {
+            self::redirect_with_notice( 'sources', [], 'error', 'Title is required.' );
+        }
+
+        $slug = sanitize_title( $title );
+        $slug = self::unique_slug( $slug, $source_id, $table, 'source_id' );
+
+        $data = [
+            'title'      => $title,
+            'author'     => $author ?: null,
+            'publisher'  => $publisher ?: null,
+            'year'       => $year ?: null,
+            'edition'    => $edition ?: null,
+            'isbn'       => $isbn ?: null,
+            'url'        => $url ?: null,
+            'notes'      => $notes ?: null,
+            'slug'       => $slug,
+            'updated_at' => current_time( 'mysql' ),
+        ];
+
+        if ( $source_id > 0 ) {
+            $wpdb->update( $table, $data, [ 'source_id' => $source_id ] );
+        } else {
+            $data['created_at'] = current_time( 'mysql' );
+            $wpdb->insert( $table, $data );
+        }
+
+        self::redirect_with_notice( 'sources', [], 'success', 'Source saved.' );
+    }
+
+    /* ---------------------------------------------------------------------
+     * Action: delete a source
+     * ------------------------------------------------------------------ */
+
+    private static function action_delete_source() {
+        $source_id = isset( $_GET['source_id'] ) ? (int) $_GET['source_id'] : 0;
+        check_admin_referer( 'bqa_delete_source_' . $source_id );
+
+        global $wpdb;
+
+        // Clear the reference on any Q&As pointing at this source
+        $wpdb->update(
+            $wpdb->prefix . 'bible_qa',
+            [ 'source_id' => null ],
+            [ 'source_id' => $source_id ]
+        );
+
+        $wpdb->delete(
+            $wpdb->prefix . 'bible_qa_sources',
+            [ 'source_id' => $source_id ],
+            [ '%d' ]
+        );
+
+        self::redirect_with_notice( 'sources', [], 'success', 'Source deleted.' );
     }
 
     /* ---------------------------------------------------------------------
@@ -577,6 +667,10 @@ class BQA_Admin {
             "SELECT author_id, name FROM {$wpdb->prefix}bible_qa_authors ORDER BY name ASC"
         );
 
+        $all_sources = $wpdb->get_results(
+            "SELECT source_id, title, author FROM {$wpdb->prefix}bible_qa_sources ORDER BY title ASC"
+        );
+
         // Term assignment
         $assigned_ids = [];
         if ( $id > 0 ) {
@@ -662,6 +756,38 @@ class BQA_Admin {
                             <p class="description">
                                 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-authors' ) ); ?>">Manage authors</a>
                             </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="source_id">Source</label></th>
+                        <td>
+                            <select name="source_id" id="source_id" style="max-width:500px;">
+                                <option value="0">— None —</option>
+                                <?php foreach ( $all_sources as $s ) : ?>
+                                    <?php
+                                    $label = $s->title;
+                                    if ( $s->author ) {
+                                        $label .= ' — ' . $s->author;
+                                    }
+                                    ?>
+                                    <option value="<?php echo (int) $s->source_id; ?>"
+                                        <?php selected( $qa ? (int) $qa->source_id : 0, (int) $s->source_id ); ?>>
+                                        <?php echo esc_html( $label ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-sources' ) ); ?>">Manage sources</a>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="source_locator">Source Locator</label></th>
+                        <td>
+                            <input type="text" name="source_locator" id="source_locator" class="regular-text"
+                                value="<?php echo esc_attr( $qa ? $qa->source_locator : '' ); ?>"
+                                placeholder="e.g. p. 145, Chapter 3, Sermon on Romans 9:16">
+                            <p class="description">Where in the source this answer came from.</p>
                         </td>
                     </tr>
                     <tr>
@@ -924,6 +1050,146 @@ class BQA_Admin {
                                     </div>
                                 </td>
                                 <td><?php echo esc_html( $a->slug ); ?></td>
+                                <td><?php echo $count; ?></td>
+                            </tr>
+                        <?php endforeach; endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /* ---------------------------------------------------------------------
+     * Screen: sources
+     * ------------------------------------------------------------------ */
+    public static function render_sources_page() {
+        if ( ! current_user_can( self::CAPABILITY ) ) {
+            return;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'bible_qa_sources';
+
+        $sources = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC" );
+
+        $edit_id = isset( $_GET['source_id'] ) ? (int) $_GET['source_id'] : 0;
+        $edit    = $edit_id ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE source_id = %d", $edit_id ) ) : null;
+        ?>
+        <div class="wrap">
+            <h1>Sources</h1>
+            <?php self::render_notice(); ?>
+
+            <div style="display:flex; gap:2em; margin-top:1em;">
+                <div style="flex:0 0 400px;">
+                    <h2><?php echo $edit ? 'Edit Source' : 'Add Source'; ?></h2>
+                    <form method="post" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+                        <?php wp_nonce_field( 'bqa_save_source' ); ?>
+                        <input type="hidden" name="bqa_action" value="save_source">
+                        <input type="hidden" name="source_id" value="<?php echo (int) ( $edit ? $edit->source_id : 0 ); ?>">
+
+                        <p>
+                            <label><strong>Title</strong></label><br>
+                            <input type="text" name="source_title" class="large-text" required
+                                value="<?php echo esc_attr( $edit ? $edit->title : '' ); ?>">
+                        </p>
+                        <p>
+                            <label><strong>Author</strong></label><br>
+                            <input type="text" name="source_author" class="large-text"
+                                value="<?php echo esc_attr( $edit ? $edit->author : '' ); ?>"
+                                placeholder="e.g. R.C. Sproul">
+                        </p>
+                        <p>
+                            <label><strong>Publisher</strong></label><br>
+                            <input type="text" name="source_publisher" class="regular-text"
+                                value="<?php echo esc_attr( $edit ? $edit->publisher : '' ); ?>">
+                        </p>
+                        <p>
+                            <label><strong>Year</strong></label><br>
+                            <input type="text" name="source_year" class="small-text"
+                                value="<?php echo esc_attr( $edit ? $edit->year : '' ); ?>">
+                        </p>
+                        <p>
+                            <label><strong>Edition</strong></label><br>
+                            <input type="text" name="source_edition" class="regular-text"
+                                value="<?php echo esc_attr( $edit ? $edit->edition : '' ); ?>">
+                        </p>
+                        <p>
+                            <label><strong>ISBN</strong></label><br>
+                            <input type="text" name="source_isbn" class="regular-text"
+                                value="<?php echo esc_attr( $edit ? $edit->isbn : '' ); ?>">
+                        </p>
+                        <p>
+                            <label><strong>URL</strong></label><br>
+                            <input type="url" name="source_url" class="large-text"
+                                value="<?php echo esc_attr( $edit ? $edit->url : '' ); ?>"
+                                placeholder="https://...">
+                        </p>
+                        <p>
+                            <label><strong>Notes</strong></label><br>
+                            <textarea name="source_notes" rows="4" class="large-text"><?php echo esc_textarea( $edit ? $edit->notes : '' ); ?></textarea>
+                        </p>
+
+                        <p>
+                            <button type="submit" class="button button-primary">
+                                <?php echo $edit ? 'Update' : 'Create'; ?>
+                            </button>
+                            <?php if ( $edit ) : ?>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-sources' ) ); ?>" class="button">Cancel</a>
+                            <?php endif; ?>
+                        </p>
+                    </form>
+                </div>
+
+                <div style="flex:1;">
+                    <h2>All Sources</h2>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">ID</th>
+                                <th>Title</th>
+                                <th style="width:180px;">Author</th>
+                                <th style="width:80px;">Year</th>
+                                <th style="width:80px;">Answers</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php if ( empty( $sources ) ) : ?>
+                            <tr><td colspan="5">No sources yet.</td></tr>
+                        <?php else : foreach ( $sources as $s ) : ?>
+                            <?php
+                            $count = (int) $wpdb->get_var( $wpdb->prepare(
+                                "SELECT COUNT(*) FROM {$wpdb->prefix}bible_qa WHERE source_id = %d",
+                                $s->source_id
+                            ) );
+                            $edit_url = add_query_arg(
+                                [ 'page' => self::MENU_SLUG . '-sources', 'source_id' => $s->source_id ],
+                                admin_url( 'admin.php' )
+                            );
+                            $del_url = wp_nonce_url(
+                                add_query_arg(
+                                    [ 'bqa_action' => 'delete_source', 'source_id' => $s->source_id ],
+                                    admin_url( 'admin.php' )
+                                ),
+                                'bqa_delete_source_' . $s->source_id
+                            );
+                            ?>
+                            <tr>
+                                <td><?php echo (int) $s->source_id; ?></td>
+                                <td>
+                                    <strong><a href="<?php echo esc_url( $edit_url ); ?>"><?php echo esc_html( $s->title ); ?></a></strong>
+                                    <div class="row-actions">
+                                        <span><a href="<?php echo esc_url( $edit_url ); ?>">Edit</a> | </span>
+                                        <span class="trash">
+                                            <a href="<?php echo esc_url( $del_url ); ?>"
+                                            onclick="return confirm('Delete this source? Questions citing it will have their source cleared.');"
+                                            style="color:#b32d2e;">Delete</a>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td><?php echo esc_html( $s->author ); ?></td>
+                                <td><?php echo esc_html( $s->year ); ?></td>
                                 <td><?php echo $count; ?></td>
                             </tr>
                         <?php endforeach; endif; ?>
