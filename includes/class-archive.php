@@ -113,7 +113,7 @@ class BQA_Archive {
             'bible-qa-search',
             BQA_URL . 'assets/search.css',
             [],
-            BQA_VERSION
+            BQA_Shortcode::asset_version( 'assets/search.css' )
         );
     }
 

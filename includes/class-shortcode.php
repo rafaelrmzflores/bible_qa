@@ -18,7 +18,7 @@ class BQA_Shortcode {
             'bible-qa-search',
             BQA_URL . 'assets/search.js',
             [],
-            BQA_VERSION,
+            self::asset_version( 'assets/search.js' ),
             true
         );
 
@@ -26,7 +26,7 @@ class BQA_Shortcode {
             'bible-qa-search',
             BQA_URL . 'assets/search.css',
             [],
-            BQA_VERSION
+            self::asset_version( 'assets/search.css' )
         );
 
         // Localize here — before anything gets printed to the page.
@@ -56,5 +56,17 @@ class BQA_Shortcode {
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Return a cache-busting version string based on the file's mtime.
+     * Falls back to BQA_VERSION if the file can't be stat'd.
+     */
+    public static function asset_version( $relative_path ) {
+        $full_path = BQA_PATH . $relative_path;
+        if ( file_exists( $full_path ) ) {
+            return (string) filemtime( $full_path );
+        }
+        return BQA_VERSION;
     }
 }
