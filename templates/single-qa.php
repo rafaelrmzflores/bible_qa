@@ -6,25 +6,30 @@ if ( ! $qa ) {
     return;
 }
 
+// Emit JSON-LD breadcrumb schema in <head>
+add_action( 'wp_head', function() use ( $qa ) {
+    BQA_Single::render_breadcrumbs_jsonld( $qa );
+} );
+
 get_header();
 ?>
 
 <main id="bqa-single" class="bqa-single-wrap">
     <article class="bqa-single">
 
+        <?php echo BQA_Single::render_breadcrumbs( $qa ); ?>
+
         <header class="bqa-single-header">
             <h1 class="bqa-question"><?php echo esc_html( $qa->question ); ?></h1>
 
-            <?php
-                $refs = BQA_Admin::get_meta( $qa->id, 'scripture_refs' );
-                if ( $refs ) :
-                ?>
-                    <p class="bqa-scripture-refs">
-                        <span class="bqa-label">Scripture:</span> <?php echo esc_html( $refs ); ?>
-                    </p>
-                <?php endif; ?>
+            <?php $refs = BQA_Admin::get_meta( $qa->id, 'scripture_refs' ); ?>
+            <?php if ( $refs ) : ?>
+                <p class="bqa-scripture-refs">
+                    <span class="bqa-label">Scripture:</span> <?php echo esc_html( $refs ); ?>
+                </p>
+            <?php endif; ?>
 
-             <?php if ( ! empty( $qa->terms ) ) : ?>
+            <?php if ( ! empty( $qa->terms ) ) : ?>
                 <ul class="bqa-terms">
                     <?php foreach ( $qa->terms as $term ) : ?>
                         <li>
@@ -34,55 +39,87 @@ get_header();
                         </li>
                     <?php endforeach; ?>
                 </ul>
-            <?php endif; ?> 
-
+            <?php endif; ?>
         </header>
 
         <div class="bqa-answer">
-            <?php
-            // Render the answer. If you stored plain text, use wpautop + esc_html.
-            // If you stored HTML from a rich editor, use wp_kses_post.
-            echo wpautop( wp_kses_post( $qa->answer ) );
-            ?>
+            <?php echo wpautop( wp_kses_post( $qa->answer ) ); ?>
         </div>
 
-     <?php if ( ! empty( $qa->author ) ) : ?>
-    <div class="bqa-author-info">
-        <?php $avatar = BQA_Single::get_author_avatar( $qa->author, 32 ); ?>
-        <?php if ( $avatar ) : ?>
-            <img class="bqa-author-avatar-inline"
-                 src="<?php echo esc_url( $avatar ); ?>"
-                 alt="<?php echo esc_attr( $qa->author->name ); ?>"
-                 width="32" height="32" loading="lazy">
-        <?php endif; ?>
+        <?php /* ---- Author + Source card ---- */ ?>
+        <?php if ( ! empty( $qa->author ) ) : ?>
+            <div class="bqa-author-info">
+                <?php $avatar = BQA_Single::get_author_avatar( $qa->author, 32 ); ?>
+                <?php if ( $avatar ) : ?>
+                    <img class="bqa-author-avatar-inline"
+                         src="<?php echo esc_url( $avatar ); ?>"
+                         alt="<?php echo esc_attr( $qa->author->name ); ?>"
+                         width="32" height="32" loading="lazy">
+                <?php endif; ?>
 
-        <span class="bqa-author-name">
-            Answered by
-            <strong><a href="<?php echo esc_url( BQA_Archive::permalink( 'author', $qa->author->slug ) ); ?>"><?php echo esc_html( $qa->author->name ); ?></a></strong>
-        </span>
+                <span class="bqa-author-name">
+                    Answered by
+                    <strong><a href="<?php echo esc_url( BQA_Archive::permalink( 'author', $qa->author->slug ) ); ?>"><?php echo esc_html( $qa->author->name ); ?></a></strong>
+                </span>
 
-        <?php if ( ! empty( $qa->source ) ) : ?>
-            <span class="bqa-source-line">
-                in
-                <?php
-                $source  = $qa->source;
-                $locator = $qa->source_locator;
+                <?php if ( ! empty( $qa->source ) ) : ?>
+                    <span class="bqa-source-line">
+                        in
+                        <?php
+                        $source  = $qa->source;
+                        $locator = $qa->source_locator;
 
-                $source_link = BQA_Archive::permalink( 'source', $source->slug );
-                $title_html  = '<a href="' . esc_url( $source_link ) . '"><em>' . esc_html( $source->title ) . '</em></a>';
+                        $source_link = BQA_Archive::permalink( 'source', $source->slug );
+                        $title_html  = '<a href="' . esc_url( $source_link ) . '"><em>' . esc_html( $source->title ) . '</em></a>';
 
-                $same_author = ! empty( $source->author )
-                    && strcasecmp( trim( $source->author ), trim( $qa->author->name ) ) === 0;
+                        $same_author = ! empty( $source->author )
+                            && strcasecmp( trim( $source->author ), trim( $qa->author->name ) ) === 0;
 
-                if ( $same_author ) {
-                    $bits = [];
-                    if ( $source->publisher ) $bits[] = $source->publisher;
-                    if ( $source->year )      $bits[] = $source->year;
-                    $meta     = $bits ? ' (' . implode( ', ', $bits ) . ')' : '';
-                    $citation = $title_html . $meta;
-                    if ( $locator ) $citation .= ', ' . esc_html( $locator );
-                    echo $citation;
-                } else {
+                        if ( $same_author ) {
+                            $bits = [];
+                            if ( $source->publisher ) $bits[] = $source->publisher;
+                            if ( $source->year )      $bits[] = $source->year;
+                            $meta     = $bits ? ' (' . implode( ', ', $bits ) . ')' : '';
+                            $citation = $title_html . $meta;
+                            if ( $locator ) $citation .= ', ' . esc_html( $locator );
+                            echo $citation;
+                        } else {
+                            $parts = [];
+                            if ( ! empty( $source->author ) ) {
+                                $parts[] = esc_html( $source->author ) . ',';
+                            }
+                            $title_full = $title_html;
+                            $meta_bits = [];
+                            if ( $source->publisher ) $meta_bits[] = $source->publisher;
+                            if ( $source->year )      $meta_bits[] = $source->year;
+                            if ( $source->edition )   $meta_bits[] = $source->edition;
+                            if ( $meta_bits ) {
+                                $title_full .= ' (' . implode( ', ', $meta_bits ) . ')';
+                            }
+                            $parts[] = $title_full;
+                            if ( $locator ) $parts[] = ', ' . esc_html( $locator );
+                            echo implode( ' ', $parts );
+                        }
+                        ?>
+
+                        <?php if ( ! empty( $source->url ) ) : ?>
+                            — <a href="<?php echo esc_url( $source->url ); ?>" target="_blank" rel="noopener">View source</a>
+                        <?php endif; ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+
+        <?php elseif ( ! empty( $qa->source ) ) : ?>
+            <div class="bqa-author-info bqa-author-info--source-only">
+                <span class="bqa-source-line">
+                    Source:
+                    <?php
+                    $source  = $qa->source;
+                    $locator = $qa->source_locator;
+
+                    $source_link = BQA_Archive::permalink( 'source', $source->slug );
+                    $title_html  = '<a href="' . esc_url( $source_link ) . '"><em>' . esc_html( $source->title ) . '</em></a>';
+
                     $parts = [];
                     if ( ! empty( $source->author ) ) {
                         $parts[] = esc_html( $source->author ) . ',';
@@ -91,57 +128,20 @@ get_header();
                     $meta_bits = [];
                     if ( $source->publisher ) $meta_bits[] = $source->publisher;
                     if ( $source->year )      $meta_bits[] = $source->year;
-                    if ( $source->edition )   $meta_bits[] = $source->edition;
                     if ( $meta_bits ) {
                         $title_full .= ' (' . implode( ', ', $meta_bits ) . ')';
                     }
                     $parts[] = $title_full;
                     if ( $locator ) $parts[] = ', ' . esc_html( $locator );
                     echo implode( ' ', $parts );
-                }
-                ?>
+                    ?>
 
-                <?php if ( ! empty( $source->url ) ) : ?>
-                    — <a href="<?php echo esc_url( $source->url ); ?>" target="_blank" rel="noopener">View source</a>
-                <?php endif; ?>
-            </span>
+                    <?php if ( ! empty( $qa->source->url ) ) : ?>
+                        — <a href="<?php echo esc_url( $qa->source->url ); ?>" target="_blank" rel="noopener">View source</a>
+                    <?php endif; ?>
+                </span>
+            </div>
         <?php endif; ?>
-    </div>
-
-<?php elseif ( ! empty( $qa->source ) ) : ?>
-    <div class="bqa-author-info bqa-author-info--source-only">
-        <span class="bqa-source-line">
-            Source:
-            <?php
-            $source  = $qa->source;
-            $locator = $qa->source_locator;
-
-            $source_link = BQA_Archive::permalink( 'source', $source->slug );
-            $title_html  = '<a href="' . esc_url( $source_link ) . '"><em>' . esc_html( $source->title ) . '</em></a>';
-
-            $parts = [];
-            if ( ! empty( $source->author ) ) {
-                $parts[] = esc_html( $source->author ) . ',';
-            }
-            $title_full = $title_html;
-            $meta_bits = [];
-            if ( $source->publisher ) $meta_bits[] = $source->publisher;
-            if ( $source->year )      $meta_bits[] = $source->year;
-            if ( $meta_bits ) {
-                $title_full .= ' (' . implode( ', ', $meta_bits ) . ')';
-            }
-            $parts[] = $title_full;
-            if ( $locator ) $parts[] = ', ' . esc_html( $locator );
-            echo implode( ' ', $parts );
-            ?>
-
-            <?php if ( ! empty( $qa->source->url ) ) : ?>
-                — <a href="<?php echo esc_url( $qa->source->url ); ?>" target="_blank" rel="noopener">View source</a>
-            <?php endif; ?>
-        </span>
-    </div>
-<?php endif; ?>
-
 
         <footer class="bqa-single-footer">
             <p class="bqa-meta">
@@ -152,10 +152,47 @@ get_header();
 
     </article>
 
+    <?php /* ---- Other answers by same author ---- */ ?>
+    <?php if ( ! empty( $qa->other_by_author ) ) : ?>
+        <aside class="bqa-related bqa-related-author">
+            <h2 class="bqa-related-title">
+                More answers by <?php echo esc_html( $qa->author->name ); ?>
+            </h2>
+            <ul class="bqa-related-list">
+                <?php foreach ( $qa->other_by_author as $rel ) : ?>
+                    <li>
+                        <a href="<?php echo esc_url( BQA_Single::permalink( $rel->slug ) ); ?>">
+                            <?php echo esc_html( $rel->question ); ?>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </aside>
+    <?php endif; ?>
+
+    <?php /* ---- More from same source ---- */ ?>
+    <?php if ( ! empty( $qa->more_from_source ) ) : ?>
+        <aside class="bqa-related bqa-related-source">
+            <h2 class="bqa-related-title">
+                More from <em><?php echo esc_html( $qa->source->title ); ?></em>
+            </h2>
+            <ul class="bqa-related-list">
+                <?php foreach ( $qa->more_from_source as $rel ) : ?>
+                    <li>
+                        <a href="<?php echo esc_url( BQA_Single::permalink( $rel->slug ) ); ?>">
+                            <?php echo esc_html( $rel->question ); ?>
+                        </a>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </aside>
+    <?php endif; ?>
+
+    <?php /* ---- Related by topic (already existing) ---- */ ?>
     <?php if ( ! empty( $qa->related ) ) : ?>
         <aside class="bqa-related">
-            <h2>Related Questions</h2>
-            <ul>
+            <h2 class="bqa-related-title">Related Questions</h2>
+            <ul class="bqa-related-list">
                 <?php foreach ( $qa->related as $rel ) : ?>
                     <li>
                         <a href="<?php echo esc_url( BQA_Single::permalink( $rel->slug ) ); ?>">

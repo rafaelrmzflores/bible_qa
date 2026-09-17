@@ -92,6 +92,10 @@ class BQA_Single {
 
         $qa->source = self::get_source( $qa->source_id );
 
+        // Cross-linking blocks
+        $qa->other_by_author   = $qa->author ? self::get_other_by_author( $qa->author_id, $qa->id, 5 ) : [];
+        $qa->more_from_source  = $qa->source ? self::get_more_from_source( $qa->source_id, $qa->id, 5 ) : [];
+
         // Bump the view counter (once per visitor per question)
         self::maybe_increment_views( $qa->id );
 
@@ -140,7 +144,13 @@ class BQA_Single {
     }
 
     /**
-     * Fetch related Q&As that share terms with this one.
+     * Fetch related Q&As ranked by shared-term count.
+     * Q&As sharing more terms with the current one rank higher.
+     * Ties broken by view count.
+     *
+     * @param int   $qa_id      The current QA ID
+     * @param array $term_ids   Term IDs attached to the current QA
+     * @param int   $limit      Max results
      */
     public static function get_related( $qa_id, $term_ids, $limit = 5 ) {
         if ( empty( $term_ids ) ) {
@@ -148,27 +158,25 @@ class BQA_Single {
         }
 
         global $wpdb;
-        $qa    = $wpdb->prefix . 'bible_qa';
-        $rel   = $wpdb->prefix . 'bible_qa_term_rel';
+        $qa  = $wpdb->prefix . 'bible_qa';
+        $rel = $wpdb->prefix . 'bible_qa_term_rel';
 
+        // Build a placeholder list for the IN clause
         $placeholders = implode( ',', array_fill( 0, count( $term_ids ), '%d' ) );
 
-        $args = array_merge(
-            [ $qa_id ],
-            $term_ids,
-            [ $limit ]
-        );
-
+        // SQL: count matching terms per related QA, order by that count desc
         $sql = $wpdb->prepare(
-            "SELECT DISTINCT q.id, q.question, q.slug
-             FROM {$qa} q
-             INNER JOIN {$rel} r ON r.qa_id = q.id
-             WHERE q.id != %d
-               AND q.status = 'published'
-               AND r.term_id IN ({$placeholders})
-             ORDER BY q.views DESC
-             LIMIT %d",
-            ...$args
+            "SELECT q.id, q.question, q.slug, q.views,
+                    COUNT(DISTINCT r.term_id) AS shared_terms
+            FROM {$qa} q
+            INNER JOIN {$rel} r ON r.qa_id = q.id
+            WHERE q.id != %d
+            AND q.status = 'published'
+            AND r.term_id IN ({$placeholders})
+            GROUP BY q.id
+            ORDER BY shared_terms DESC, q.views DESC
+            LIMIT %d",
+            array_merge( [ $qa_id ], $term_ids, [ $limit ] )
         );
 
         return $wpdb->get_results( $sql );
@@ -353,5 +361,187 @@ class BQA_Single {
      */
     public static function source_permalink( $slug ) {
         return home_url( user_trailingslashit( 'qa-source/' . $slug ) );
+    }
+
+    /**
+     * Render the breadcrumb trail for a single Q&A.
+     * Chain: Home › Bible Q&A › [Topic] › [Question]
+     */
+    public static function render_breadcrumbs( $qa ) {
+        if ( ! $qa ) {
+            return '';
+        }
+
+        $home_url   = home_url( '/' );
+        $search_url = self::search_url();
+
+        $crumbs = [
+            [
+                'label' => 'Home',
+                'url'   => $home_url,
+            ],
+            [
+                'label' => 'Bible Q&A',
+                'url'   => $search_url,
+            ],
+        ];
+
+        // Add primary topic (first alphabetically) if the QA has one
+        if ( ! empty( $qa->terms ) ) {
+            $terms = $qa->terms;
+            // Sort alphabetically by name, case-insensitive
+            usort( $terms, function( $a, $b ) {
+                return strcasecmp( $a->name, $b->name );
+            } );
+            $primary = $terms[0];
+            $crumbs[] = [
+                'label' => $primary->name,
+                'url'   => BQA_Archive::permalink( 'topic', $primary->slug ),
+            ];
+        }
+
+        // Current page (not linked)
+        $crumbs[] = [
+            'label' => $qa->question,
+            'url'   => null,
+        ];
+
+        // Render as HTML
+        $html  = '<nav class="bqa-breadcrumbs" aria-label="Breadcrumb">';
+        $html .= '<ol class="bqa-breadcrumbs-list">';
+
+        $count = count( $crumbs );
+        foreach ( $crumbs as $i => $crumb ) {
+            $is_last = ( $i === $count - 1 );
+
+            $html .= '<li class="bqa-breadcrumb-item' . ( $is_last ? ' bqa-breadcrumb-current' : '' ) . '">';
+
+            if ( ! empty( $crumb['url'] ) && ! $is_last ) {
+                $html .= '<a href="' . esc_url( $crumb['url'] ) . '">' . esc_html( $crumb['label'] ) . '</a>';
+            } else {
+                $html .= '<span>' . esc_html( $crumb['label'] ) . '</span>';
+            }
+
+            if ( ! $is_last ) {
+                $html .= '<span class="bqa-breadcrumb-sep" aria-hidden="true">›</span>';
+            }
+
+            $html .= '</li>';
+        }
+
+        $html .= '</ol>';
+        $html .= '</nav>';
+
+        return $html;
+    }
+
+    /**
+     * Output JSON-LD BreadcrumbList schema for the current QA.
+     */
+    public static function render_breadcrumbs_jsonld( $qa ) {
+        if ( ! $qa ) {
+            return;
+        }
+
+        $items = [];
+
+        // Home
+        $items[] = [
+            '@type'    => 'ListItem',
+            'position' => 1,
+            'name'     => 'Home',
+            'item'     => home_url( '/' ),
+        ];
+
+        // Bible Q&A (search page)
+        $items[] = [
+            '@type'    => 'ListItem',
+            'position' => 2,
+            'name'     => 'Bible Q&A',
+            'item'     => self::search_url(),
+        ];
+
+        $position = 3;
+
+        // Primary topic
+        if ( ! empty( $qa->terms ) ) {
+            $terms = $qa->terms;
+            usort( $terms, function( $a, $b ) {
+                return strcasecmp( $a->name, $b->name );
+            } );
+            $primary = $terms[0];
+            $items[] = [
+                '@type'    => 'ListItem',
+                'position' => $position++,
+                'name'     => $primary->name,
+                'item'     => BQA_Archive::permalink( 'topic', $primary->slug ),
+            ];
+        }
+
+        // Question
+        $items[] = [
+            '@type'    => 'ListItem',
+            'position' => $position,
+            'name'     => $qa->question,
+            'item'     => self::permalink( $qa->slug ),
+        ];
+
+        $schema = [
+            '@context'        => 'https://schema.org',
+            '@type'           => 'BreadcrumbList',
+            'itemListElement' => $items,
+        ];
+
+        echo '<script type="application/ld+json">'
+            . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+            . '</script>' . "\n";
+    }
+
+    /**
+     * Fetch other published Q&As by the same author, excluding the current one.
+     */
+    public static function get_other_by_author( $author_id, $exclude_qa_id, $limit = 5 ) {
+        $author_id = (int) $author_id;
+        if ( ! $author_id ) {
+            return [];
+        }
+
+        global $wpdb;
+        $qa = $wpdb->prefix . 'bible_qa';
+
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, question, slug, views
+            FROM {$qa}
+            WHERE author_id = %d
+            AND id != %d
+            AND status = 'published'
+            ORDER BY views DESC, updated_at DESC
+            LIMIT %d",
+            $author_id, $exclude_qa_id, $limit
+        ) );
+    }
+
+    /**
+     * Fetch other published Q&As from the same source, excluding the current one.
+     */
+    public static function get_more_from_source( $source_id, $exclude_qa_id, $limit = 5 ) {
+        $source_id = (int) $source_id;
+        if ( ! $source_id ) {
+            return [];
+        }
+
+        global $wpdb;
+        $qa = $wpdb->prefix . 'bible_qa';
+
+        return $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, question, slug, views
+            FROM {$qa}
+            WHERE source_id = %d
+            AND id != %d
+            AND status = 'published'
+            ORDER BY views DESC, updated_at DESC
+            LIMIT %d",
+            $source_id, $exclude_qa_id, $limit
+        ) );
     }
 }

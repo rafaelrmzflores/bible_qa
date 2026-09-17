@@ -19,7 +19,7 @@ define( 'BQA_VERSION', '1.0.0' );
 define( 'BQA_FILE', __FILE__ );
 define( 'BQA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BQA_URL',  plugin_dir_url( __FILE__ ) );
-define( 'BQA_DB_VERSION', '1.0.5' );
+define( 'BQA_DB_VERSION', '1.0.6' );
 
 /* -------------------------------------------------------------------------
  * Activation / Deactivation

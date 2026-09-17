@@ -550,3 +550,73 @@ html body .bqa-single-wrap .bqa-author-name a {
 html body .bqa-single-wrap .bqa-author-name a:hover {
   text-decoration: underline !important;
 }
+/* ============================================================
+   6. BREADCRUMBS
+   ============================================================ */
+
+html body .bqa-single-wrap .bqa-breadcrumbs {
+  margin: 0 0 1.5rem !important;
+  padding: 0 !important;
+  font-size: 0.85em !important;
+  color: #7a8a80 !important;
+  line-height: 1.5 !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumbs-list {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 0 !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumb-item {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumb-item a {
+  color: #4a7c59 !important;
+  text-decoration: none !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumb-item a:hover {
+  text-decoration: underline !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumb-sep {
+  margin: 0 0.5rem !important;
+  color: #c0ccc4 !important;
+  display: inline-block !important;
+}
+
+html body .bqa-single-wrap .bqa-breadcrumb-current span {
+  color: #555 !important;
+  font-weight: 500 !important;
+}
+
+/* Truncate very long question text in the last crumb on small screens */
+@media (max-width: 640px) {
+  html body .bqa-single-wrap .bqa-breadcrumb-current span {
+    max-width: 200px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+    vertical-align: bottom !important;
+  }
+}
+
+/* Different accents for author/source related blocks */
+html body .bqa-single-wrap .bqa-related-author {
+  border-left: 3px solid #4a7c59 !important;
+}
+
+html body .bqa-single-wrap .bqa-related-source {
+  border-left: 3px solid #8a6d3b !important;
+}
