@@ -754,7 +754,7 @@ class BQA_Admin {
                                 <?php endforeach; ?>
                             </select>
                             <p class="description">
-                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-authors' ) ); ?>">Manage authors</a>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-authors' ) ); ?>" target="_blank" rel="noopener">Manage authors</a>
                             </p>
                         </td>
                     </tr>
@@ -777,7 +777,7 @@ class BQA_Admin {
                                 <?php endforeach; ?>
                             </select>
                             <p class="description">
-                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-sources' ) ); ?>">Manage sources</a>
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-sources' ) ); ?>" target="_blank" rel="noopener">Manage sources</a>
                             </p>
                         </td>
                     </tr>
@@ -806,6 +806,9 @@ class BQA_Admin {
                                     <?php endforeach; ?>
                                 </fieldset>
                             <?php endif; ?>
+                            <p class="description">
+                                <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG . '-topics' ) ); ?>" target="_blank" rel="noopener">Manage topics</a>
+                            </p>
                         </td>
                     </tr>
                 </table>

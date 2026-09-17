@@ -109,6 +109,14 @@ class BQA_Single {
             return $qa->question;
         } );
 
+        // Enqueue the plugin stylesheet for this template
+        wp_enqueue_style(
+            'bible-qa-search',
+            BQA_URL . 'assets/search.css',
+            [],
+            BQA_VERSION
+        );
+
         load_template( $template, false );
         exit;
     }
