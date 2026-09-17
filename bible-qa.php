@@ -19,7 +19,7 @@ define( 'BQA_VERSION', '1.0.0' );
 define( 'BQA_FILE', __FILE__ );
 define( 'BQA_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BQA_URL',  plugin_dir_url( __FILE__ ) );
-define( 'BQA_DB_VERSION', '1.0.3' );
+define( 'BQA_DB_VERSION', '1.0.4' );
 
 /* -------------------------------------------------------------------------
  * Activation / Deactivation
@@ -279,6 +279,7 @@ function bqa_seed_terms() {
 require_once BQA_PATH . 'includes/class-rest.php';
 require_once BQA_PATH . 'includes/class-shortcode.php';
 require_once BQA_PATH . 'includes/class-single.php';
+require_once BQA_PATH . 'includes/class-topic.php';
 require_once BQA_PATH . 'includes/class-admin.php';
 
 // Register hooks immediately. Do NOT wrap in plugins_loaded — that hook may
@@ -287,6 +288,7 @@ require_once BQA_PATH . 'includes/class-admin.php';
 BQA_REST::init();
 BQA_Shortcode::init();
 BQA_Single::init();
+BQA_Topic::init();
 if ( is_admin() ) {
     BQA_Admin::init();
 }

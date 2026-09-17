@@ -28,7 +28,7 @@ get_header();
                 <ul class="bqa-terms">
                     <?php foreach ( $qa->terms as $term ) : ?>
                         <li>
-                            <a href="<?php echo esc_url( add_query_arg( 'term', $term->slug, home_url( '/' ) ) ); ?>">
+                            <a href="<?php echo esc_url( BQA_Topic::permalink( $term->slug ) ); ?>">
                                 <?php echo esc_html( $term->name ); ?>
                             </a>
                         </li>
