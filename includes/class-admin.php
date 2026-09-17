@@ -177,6 +177,7 @@ class BQA_Admin {
         // Sync scripture refs
         self::upsert_meta( $id, 'scripture_refs', $refs );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'edit', [ 'qa_id' => $id ], 'success', 'Question saved.' );
     }
 
@@ -193,6 +194,7 @@ class BQA_Admin {
         $wpdb->delete( $wpdb->prefix . 'bible_qa_meta',     [ 'qa_id'   => $id ], [ '%d' ] );
         $wpdb->delete( $wpdb->prefix . 'bible_qa_term_rel', [ 'qa_id'   => $id ], [ '%d' ] );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'list', [], 'success', 'Question deleted.' );
     }
 
@@ -211,6 +213,7 @@ class BQA_Admin {
 
         $wpdb->update( $table, [ 'status' => $new, 'updated_at' => current_time( 'mysql' ) ], [ 'id' => $id ] );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'list', [], 'success', 'Status updated.' );
     }
 
@@ -250,6 +253,7 @@ class BQA_Admin {
             $wpdb->insert( $table, $data );
         }
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'topics', [], 'success', 'Topic saved.' );
     }
 
@@ -265,6 +269,7 @@ class BQA_Admin {
         $wpdb->delete( $wpdb->prefix . 'bible_qa_terms',    [ 'term_id' => $term_id ], [ '%d' ] );
         $wpdb->delete( $wpdb->prefix . 'bible_qa_term_rel', [ 'term_id' => $term_id ], [ '%d' ] );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'topics', [], 'success', 'Topic deleted.' );
     }
 
@@ -311,6 +316,7 @@ class BQA_Admin {
             $wpdb->insert( $table, $data );
         }
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'authors', [], 'success', 'Author saved.' );
     }
 
@@ -337,6 +343,7 @@ class BQA_Admin {
             [ '%d' ]
         );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'authors', [], 'success', 'Author deleted.' );
     }
 
@@ -386,6 +393,7 @@ class BQA_Admin {
             $wpdb->insert( $table, $data );
         }
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'sources', [], 'success', 'Source saved.' );
     }
 
@@ -412,6 +420,7 @@ class BQA_Admin {
             [ '%d' ]
         );
 
+        BQA_REST::invalidate_cache();
         self::redirect_with_notice( 'sources', [], 'success', 'Source deleted.' );
     }
 
