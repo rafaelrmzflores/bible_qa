@@ -61,8 +61,9 @@ class BQA_Archive {
     public static function init() {
         add_action( 'init', [ __CLASS__, 'add_rewrite_rules' ] );
         add_filter( 'query_vars', [ __CLASS__, 'register_query_vars' ] );
-        add_action( 'template_redirect', [ __CLASS__, 'maybe_render' ] );
-        add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
+        add_filter( 'template_include', [ __CLASS__, 'maybe_render' ] );
+        // Note: enqueue_assets() is called from maybe_render() instead of wp_enqueue_scripts, so that we only load the CSS on archive pages.
+        // add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
 
     /**
@@ -217,13 +218,10 @@ class BQA_Archive {
         return home_url( user_trailingslashit( $types[ $type_key ]['rewrite'] . '/' . $slug ) );
     }
 
-    /**
-     * Dispatch the archive request.
-     */
-    public static function maybe_render() {
+   public static function maybe_render( $template ) {
         $current = self::detect_current();
         if ( ! $current ) {
-            return;
+            return $template;
         }
 
         $type_config = $current['config'];
@@ -234,8 +232,7 @@ class BQA_Archive {
             $wp_query->set_404();
             status_header( 404 );
             nocache_headers();
-            include get_query_template( '404' );
-            exit;
+            return get_query_template( '404' );
         }
 
         $entity_id = $entity->{ $type_config['id_col'] };
@@ -244,15 +241,13 @@ class BQA_Archive {
         $total = self::count_qa_for_entity( $type_config, $entity_id );
         $items = self::get_qa_for_entity( $type_config, $entity_id, $page );
 
-        // Extra metadata depending on type
         $meta = [];
         if ( $current['key'] === 'source' ) {
             $meta['citation'] = BQA_Single::format_citation( $entity, '' );
             $meta['url']      = ! empty( $entity->url ) ? $entity->url : '';
         }
         if ( $current['key'] === 'author' ) {
-            $avatar = BQA_Single::get_author_avatar( $entity, 64 );
-            $meta['avatar'] = $avatar;
+            $meta['avatar'] = BQA_Single::get_author_avatar( $entity, 64 );
             $meta['bio']    = ! empty( $entity->bio ) ? $entity->bio : '';
         }
 
@@ -268,12 +263,18 @@ class BQA_Archive {
             'max_pages' => max( 1, (int) ceil( $total / self::PER_PAGE ) ),
         ];
 
-        $template = locate_template( [ 'bqa-archive.php' ] );
-        if ( ! $template ) {
-            $template = BQA_PATH . 'templates/archive.php';
+        wp_enqueue_style(
+            'bible-qa-search',
+            BQA_URL . 'assets/search.css',
+            [],
+            BQA_Shortcode::asset_version( 'assets/search.css' )
+        );
+
+        $custom = locate_template( [ 'bqa-archive.php' ] );
+        if ( $custom ) {
+            return $custom;
         }
 
-        load_template( $template, false );
-        exit;
+        return BQA_PATH . 'templates/archive.php';
     }
 }

@@ -13,7 +13,7 @@ class BQA_Single {
         add_filter( 'query_vars', [ __CLASS__, 'register_query_var' ] );
 
         // Intercept requests to /qa/{slug}/
-        add_action( 'template_redirect', [ __CLASS__, 'maybe_render' ] );
+        add_filter( 'template_include', [ __CLASS__, 'maybe_render' ] );
 
         // Flush rewrite rules once after activation (safe one-time)
         add_action( 'wp_loaded', [ __CLASS__, 'maybe_flush_rewrites' ] );
@@ -54,12 +54,13 @@ class BQA_Single {
     }
 
     /**
-     * If the request is for a single Q&A, load our template.
+     * If the request is for a single Q&A, swap the template file.
+     * Uses template_include so the theme's normal hierarchy still runs.
      */
-    public static function maybe_render() {
+    public static function maybe_render( $template ) {
         $slug = get_query_var( self::QUERY_VAR );
         if ( ! $slug ) {
-            return;
+            return $template; // not our page, let WP handle it
         }
 
         global $wpdb;
@@ -67,62 +68,49 @@ class BQA_Single {
 
         $qa = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$table}
-             WHERE slug = %s AND status = 'published'
-             LIMIT 1",
+            WHERE slug = %s AND status = 'published'
+            LIMIT 1",
             $slug
         ) );
 
         if ( ! $qa ) {
-            // Slug doesn't match a published question — serve a real 404
+            // Slug doesn't match a published question — let WP render its 404
             global $wp_query;
             $wp_query->set_404();
             status_header( 404 );
             nocache_headers();
-            include get_query_template( '404' );
-            exit;
+            return get_query_template( '404' );
         }
 
-        // Load terms for this QA
-        $qa->terms = self::get_terms_for( $qa->id );
+        // Load terms, related, author, source, etc.
+        $qa->terms           = self::get_terms_for( $qa->id );
+        $qa->related         = self::get_related( $qa->id, wp_list_pluck( $qa->terms, 'term_id' ) );
+        $qa->author          = self::get_author( $qa->author_id );
+        $qa->source          = self::get_source( $qa->source_id );
+        $qa->other_by_author = $qa->author ? self::get_other_by_author( $qa->author_id, $qa->id, 5 ) : [];
+        $qa->more_from_source= $qa->source ? self::get_more_from_source( $qa->source_id, $qa->id, 5 ) : [];
 
-        // Load related (same terms, excluding self)
-        $qa->related = self::get_related( $qa->id, wp_list_pluck( $qa->terms, 'term_id' ) );
-
-        $qa->author = self::get_author( $qa->author_id );
-
-        $qa->source = self::get_source( $qa->source_id );
-
-        // Cross-linking blocks
-        $qa->other_by_author   = $qa->author ? self::get_other_by_author( $qa->author_id, $qa->id, 5 ) : [];
-        $qa->more_from_source  = $qa->source ? self::get_more_from_source( $qa->source_id, $qa->id, 5 ) : [];
-
-        // Bump the view counter (once per visitor per question)
+        // Bump view counter
         self::maybe_increment_views( $qa->id );
 
         // Expose to template
         $GLOBALS['bqa_current'] = $qa;
 
-        // Choose template: theme override > plugin default
-        $template = locate_template( [ 'single-bible-qa.php' ] );
-        if ( ! $template ) {
-            $template = BQA_PATH . 'templates/single-qa.php';
-        }
-
-        // Allow themes to hook in
-        add_filter( 'the_title', function( $title ) use ( $qa ) {
-            return $qa->question;
-        } );
-
-        // Enqueue the plugin stylesheet for this template
+        // Enqueue plugin stylesheet
         wp_enqueue_style(
             'bible-qa-search',
             BQA_URL . 'assets/search.css',
             [],
-            BQA_Shortcode::asset_version( 'assets/search.css' )
+            BQA_SHORTCODE::asset_version( 'assets/search.css' )
         );
 
-        load_template( $template, false );
-        exit;
+        // Theme override allowed
+        $custom = locate_template( [ 'single-bible-qa.php' ] );
+        if ( $custom ) {
+            return $custom;
+        }
+
+        return BQA_PATH . 'templates/single-qa.php';
     }
 
     /**
