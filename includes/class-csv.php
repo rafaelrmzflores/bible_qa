@@ -9,6 +9,7 @@ class BQA_CSV {
     public static function init() {
         add_action( 'admin_post_bqa_export_csv', [ __CLASS__, 'handle_export' ] );
         add_action( 'admin_post_bqa_import_csv', [ __CLASS__, 'handle_import' ] );
+        add_action( 'admin_post_bqa_wipe_all', [ __CLASS__, 'handle_wipe_all' ] );
     }
 
     /* =====================================================================
@@ -454,6 +455,39 @@ class BQA_CSV {
             'page'    => 'bible-qa-import',
             'bqa_msg' => $type,
             'bqa_txt' => rawurlencode( $message ),
+        ], admin_url( 'admin.php' ) ) );
+        exit;
+    }
+
+    public static function handle_wipe_all() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'Insufficient permissions.' );
+        }
+        check_admin_referer( 'bqa_wipe_all' );
+
+        global $wpdb;
+
+        $tables = [
+            $wpdb->prefix . 'bible_qa_term_rel',
+            $wpdb->prefix . 'bible_qa_meta',
+            $wpdb->prefix . 'bible_qa_search_log',
+            $wpdb->prefix . 'bible_qa',
+            $wpdb->prefix . 'bible_qa_terms',
+            $wpdb->prefix . 'bible_qa_sources',
+            $wpdb->prefix . 'bible_qa_authors',
+        ];
+
+        foreach ( $tables as $table ) {
+            $wpdb->query( "TRUNCATE TABLE {$table}" );
+        }
+
+        if ( class_exists( 'BQA_REST' ) ) {
+            BQA_REST::invalidate_cache();
+        }
+
+        wp_safe_redirect( add_query_arg( [
+            'page'    => 'bible-qa-import',
+            'bqa_msg' => 'wipe_done',
         ], admin_url( 'admin.php' ) ) );
         exit;
     }

@@ -1312,6 +1312,15 @@ class BQA_Admin {
                 </p>
             </form>
         </div>
+        <h2>Danger zone</h2>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('Delete ALL Q&As, authors, sources, topics, and terms? This cannot be undone.');">
+                <?php wp_nonce_field( 'bqa_wipe_all' ); ?>
+                <input type="hidden" name="action" value="bqa_wipe_all">
+                <p>
+                    <button type="submit" class="button button-link-delete">Delete all Bible Q&A data</button>
+                    <span class="description" style="margin-left:1em;">Deletes every Q&A, author, source, topic, and search log entry. Export first.</span>
+                </p>
+            </form>
         <?php
     }
 
