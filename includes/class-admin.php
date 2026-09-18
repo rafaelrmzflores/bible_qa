@@ -72,6 +72,24 @@ class BQA_Admin {
             self::MENU_SLUG . '-sources',
             [ __CLASS__, 'render_sources_page' ]
         );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Import',
+            'Import',
+            self::CAPABILITY,
+            self::MENU_SLUG . '-import',
+            [ __CLASS__, 'render_import_page' ]
+        );
+
+        add_submenu_page(
+            self::MENU_SLUG,
+            'Export',
+            'Export',
+            self::CAPABILITY,
+            self::MENU_SLUG . '-export',
+            [ __CLASS__, 'render_export_page' ]
+        );
     }
 
     /* ---------------------------------------------------------------------
@@ -1209,6 +1227,139 @@ class BQA_Admin {
                     </table>
                 </div>
             </div>
+        </div>
+        <?php
+    }
+
+    /* ---------------------------------------------------------------------
+    * Screen: Import
+    * ------------------------------------------------------------------ */
+
+    public static function render_import_page() {
+        if ( ! current_user_can( self::CAPABILITY ) ) {
+            return;
+        }
+        ?>
+        <div class="wrap">
+            <h1>Import Q&amp;As from CSV</h1>
+
+            <?php if ( isset( $_GET['bqa_msg'] ) ) : ?>
+                <?php if ( $_GET['bqa_msg'] === 'import_done' ) : ?>
+                    <div class="notice notice-success is-dismissible">
+                        <p>
+                            <strong>Import complete.</strong>
+                            Created: <?php echo (int) ( $_GET['created'] ?? 0 ); ?>,
+                            Updated: <?php echo (int) ( $_GET['updated'] ?? 0 ); ?>,
+                            Skipped: <?php echo (int) ( $_GET['skipped'] ?? 0 ); ?>,
+                            Errors: <?php echo (int) ( $_GET['errors'] ?? 0 ); ?>
+                        </p>
+                    </div>
+                <?php elseif ( $_GET['bqa_msg'] === 'error' ) : ?>
+                    <div class="notice notice-error is-dismissible">
+                        <p><?php echo esc_html( rawurldecode( $_GET['bqa_txt'] ?? 'Unknown error.' ) ); ?></p>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <p>
+                Upload a CSV file with the following columns. Only <code>question</code> and <code>answer</code> are required.
+                Rows matching an existing slug will be updated; otherwise new Q&amp;As are created.
+            </p>
+
+            <table class="widefat striped" style="max-width:720px;margin-bottom:1.5em;">
+                <thead>
+                    <tr><th>Column</th><th>Notes</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>question</code></td><td>Required. The question text.</td></tr>
+                    <tr><td><code>answer</code></td><td>Required. May include HTML.</td></tr>
+                    <tr><td><code>slug</code></td><td>Optional. Auto-generated from the question if missing. Used to match existing rows for updates.</td></tr>
+                    <tr><td><code>status</code></td><td>Optional. <code>published</code> (default) or <code>draft</code>.</td></tr>
+                    <tr><td><code>author</code></td><td>Optional. Author name; matched or created.</td></tr>
+                    <tr><td><code>source_title</code></td><td>Optional. Book/article title; matched or created.</td></tr>
+                    <tr><td><code>source_author</code></td><td>Optional. Free text.</td></tr>
+                    <tr><td><code>source_publisher</code></td><td>Optional.</td></tr>
+                    <tr><td><code>source_year</code></td><td>Optional.</td></tr>
+                    <tr><td><code>source_edition</code></td><td>Optional.</td></tr>
+                    <tr><td><code>source_isbn</code></td><td>Optional.</td></tr>
+                    <tr><td><code>source_url</code></td><td>Optional. Link to publisher/Amazon/archive.org.</td></tr>
+                    <tr><td><code>source_locator</code></td><td>Optional. E.g. "p. 145", "Chapter 3".</td></tr>
+                    <tr><td><code>topics</code></td><td>Optional. Comma-separated list, e.g. <code>Salvation, Grace</code>.</td></tr>
+                    <tr><td><code>scripture_refs</code></td><td>Optional. E.g. <code>John 3:16; Romans 5:8</code>.</td></tr>
+                </tbody>
+            </table>
+
+            <p>
+                <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bqa_export_csv' ), BQA_CSV::EXPORT_NONCE ) ); ?>"
+                class="button">Download current data as a template</a>
+                <span class="description" style="margin-left:0.75em;">Exports all existing Q&amp;As in the same format — useful as a starting point.</span>
+            </p>
+
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
+                <?php wp_nonce_field( BQA_CSV::IMPORT_NONCE ); ?>
+                <input type="hidden" name="action" value="bqa_import_csv">
+                <table class="form-table">
+                    <tr>
+                        <th><label for="bqa_csv">CSV file</label></th>
+                        <td>
+                            <input type="file" name="bqa_csv" id="bqa_csv" accept=".csv,text/csv" required>
+                            <p class="description">UTF-8 encoded. Excel/Google Sheets exports are fine.</p>
+                        </td>
+                    </tr>
+                </table>
+                <p class="submit">
+                    <button type="submit" class="button button-primary">Import CSV</button>
+                </p>
+            </form>
+        </div>
+        <?php
+    }
+
+    /* ---------------------------------------------------------------------
+    * Screen: Export
+    * ------------------------------------------------------------------ */
+
+    public static function render_export_page() {
+        if ( ! current_user_can( self::CAPABILITY ) ) {
+            return;
+        }
+        ?>
+        <div class="wrap">
+            <h1>Export Q&amp;As to CSV</h1>
+
+            <p>
+                Downloads every Q&amp;A with its author, source, topics, and scripture references.
+                Use it as a backup, or edit it in a spreadsheet and re-import via the Import screen.
+            </p>
+
+            <p>
+                <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=bqa_export_csv' ), BQA_CSV::EXPORT_NONCE ) ); ?>"
+                class="button button-primary button-hero">
+                    Download CSV
+                </a>
+            </p>
+
+            <h2>Columns in the export</h2>
+            <table class="widefat striped" style="max-width:720px;">
+                <thead><tr><th>Column</th><th>Contains</th></tr></thead>
+                <tbody>
+                    <tr><td><code>slug</code></td><td>URL slug</td></tr>
+                    <tr><td><code>question</code></td><td>Question text</td></tr>
+                    <tr><td><code>answer</code></td><td>Answer (HTML)</td></tr>
+                    <tr><td><code>status</code></td><td>published / draft</td></tr>
+                    <tr><td><code>author</code></td><td>Author name</td></tr>
+                    <tr><td><code>source_title</code></td><td>Book/article title</td></tr>
+                    <tr><td><code>source_author</code></td><td>Source author (free text)</td></tr>
+                    <tr><td><code>source_publisher</code></td><td>Publisher</td></tr>
+                    <tr><td><code>source_year</code></td><td>Year</td></tr>
+                    <tr><td><code>source_edition</code></td><td>Edition</td></tr>
+                    <tr><td><code>source_isbn</code></td><td>ISBN</td></tr>
+                    <tr><td><code>source_url</code></td><td>Link</td></tr>
+                    <tr><td><code>source_locator</code></td><td>Page/chapter</td></tr>
+                    <tr><td><code>topics</code></td><td>Comma-separated topic names</td></tr>
+                    <tr><td><code>scripture_refs</code></td><td>Scripture references</td></tr>
+                </tbody>
+            </table>
         </div>
         <?php
     }
